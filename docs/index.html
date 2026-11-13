@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Satıcı Mutabakat Dashboard'u — 2026 H1</title>
+<style>
+.viz-root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --series-1: #2a78d6; --series-2: #eb6834;
+  --good: #0ca30c; --good-text: #006300; --critical: #d03b3b; --warning: #fab219;
+  --hover: rgba(11,11,11,0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .viz-root {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface-1: #1a1a19;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5; --series-2: #d95926;
+    --good-text: #0ca30c; --hover: rgba(255,255,255,0.05);
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+.viz-root { background: var(--page); color: var(--text-primary); min-height: 100vh;
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 28px 24px 48px; }
+.wrap { max-width: 1180px; margin: 0 auto; }
+header h1 { font-size: 22px; margin: 0 0 4px; font-weight: 650; }
+header p { margin: 0; color: var(--text-secondary); }
+.meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.chip { font-size: 12px; color: var(--text-secondary); border: 1px solid var(--border);
+  border-radius: 999px; padding: 3px 10px; background: var(--surface-1); }
+.grid { display: grid; gap: 16px; margin-top: 20px; }
+.grid > * { min-width: 0; }
+.kpis { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+.kpi .label { color: var(--text-secondary); font-size: 12.5px; }
+.kpi .value { font-size: 24px; font-weight: 650; margin-top: 4px; }
+.kpi .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.status { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.status.ok { color: var(--good-text); }
+.status.bad { color: var(--critical); }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.two { grid-template-columns: 1fr 1fr; }
+@media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
+h2 { font-size: 15px; margin: 0 0 2px; font-weight: 650; }
+.card .desc { color: var(--text-secondary); font-size: 12.5px; margin: 0 0 12px; }
+.legend { display: flex; gap: 16px; font-size: 12.5px; color: var(--text-secondary); margin-bottom: 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+svg text { font-family: inherit; }
+.tick { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.lbl { fill: var(--text-secondary); font-size: 12px; }
+.val { fill: var(--text-primary); font-size: 12px; font-variant-numeric: tabular-nums; }
+.hit { fill: transparent; cursor: default; }
+.hit:hover { fill: var(--hover); }
+#tip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12); display: none; min-width: 160px; }
+#tip b { display: block; margin-bottom: 4px; }
+#tip .row { display: flex; justify-content: space-between; gap: 14px; font-variant-numeric: tabular-nums; }
+details { margin-top: 10px; font-size: 12.5px; color: var(--text-secondary); }
+details table { margin-top: 8px; }
+.filters { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 12px; }
+select, input { font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--axis);
+  background: var(--surface-1); color: var(--text-primary); }
+input { min-width: 220px; }
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { color: var(--text-secondary); font-weight: 600; position: sticky; top: 0; background: var(--surface-1); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.pill { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-secondary); }
+.neg { color: var(--critical); }
+.note { font-size: 12px; color: var(--muted); margin-top: 18px; }
+.count { color: var(--muted); font-size: 12.5px; margin-left: auto; align-self: center; }
+</style>
+</head>
+<body>
+<div class="viz-root">
+<div class="wrap">
+  <header>
+    <h1>Satıcı Mutabakatı — Alt Defter ↔ Genel Muhasebe</h1>
+    <p>Satın alma faturaları (alt defter) ile 320 Satıcılar hesabı kayıtlarının belge bazında mutabakatı · Ocak–Haziran 2026</p>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <section class="grid kpis" id="kpis"></section>
+
+  <section class="grid two">
+    <div class="card">
+      <h2>Aylık tutar: fatura vs. muhasebe kaydı</h2>
+      <p class="desc">Brüt tutar, milyon TL. Aradaki farklar aşağıdaki istisnalardan gelir.</p>
+      <div class="legend"><span><i class="sw" style="background:var(--series-1)"></i>Fatura (alt defter)</span>
+        <span><i class="sw" style="background:var(--series-2)"></i>Muhasebe (320 alacak)</span></div>
+      <div id="chart-monthly"></div>
+      <details><summary>Tablo görünümü</summary><div id="tbl-monthly"></div></details>
+    </div>
+    <div class="card">
+      <h2>İstisnalar: türe göre</h2>
+      <p class="desc">Belge sayısı. Fark tutarı için çubuğun üzerine gelin.</p>
+      <div id="chart-types"></div>
+      <details><summary>Tablo görünümü</summary><div id="tbl-types"></div></details>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Proje bazında maliyet (net, fatura)</h2>
+      <p class="desc">Milyon TL. Etikette proje adı ve segment.</p>
+      <div id="chart-projects"></div>
+      <details><summary>Tablo görünümü</summary><div id="tbl-projects"></div></details>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>İstisna listesi: kaynağa kadar izleme</h2>
+      <p class="desc">Her satır tek bir belge; önerilen aksiyonla birlikte. Vergi numaraları KVKK gereği maskelenmiştir.</p>
+      <div class="filters">
+        <select id="f-type"><option value="">Tüm istisna türleri</option></select>
+        <select id="f-project"><option value="">Tüm projeler</option></select>
+        <input id="f-search" type="search" placeholder="Belge no veya tedarikçi ara…">
+        <span class="count" id="f-count"></span>
+      </div>
+      <div class="tbl-wrap"><table id="exc"></table></div>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Mizan</h2>
+      <p class="desc">Hesap bazında borç/alacak. Toplam borç = toplam alacak kontrolü üstteki göstergede.</p>
+      <div class="tbl-wrap"><table id="tb"></table></div>
+    </div>
+  </section>
+
+  <p class="note" id="foot"></p>
+</div>
+<div id="tip"></div>
+</div>
+
+<script>
+const DATA = {"generated_at": "13.11.2026 10:06", "summary": {"invoice_count": 620, "gl_entry_count": 923, "subledger_total": 83442614.1, "gl_total": 84056165.62, "total_difference": 613551.52, "explained_difference": 613551.52, "unexplained_difference": 0.0, "matched_count": 603, "exception_count": 19, "match_rate": 0.9695, "trial_balance_ok": true, "exceptions_by_type": {"MISSING_IN_GL": 4, "MISSING_IN_SUBLEDGER": 2, "DUPLICATE_IN_GL": 3, "AMOUNT_MISMATCH": 4, "PROJECT_MISMATCH": 3, "PERIOD_MISMATCH": 3}}, "monthly": [{"period": "2026-01", "subledger": 15773353.9, "gl": 16029145.47}, {"period": "2026-02", "subledger": 14898396.09, "gl": 15006396.09}, {"period": "2026-03", "subledger": 12146942.39, "gl": 12736003.27}, {"period": "2026-04", "subledger": 12589991.7, "gl": 12340726.68}, {"period": "2026-05", "subledger": 14335158.56, "gl": 14376136.02}, {"period": "2026-06", "subledger": 13698771.46, "gl": 13567758.09}], "by_type": [{"status": "MISSING_IN_GL", "count": 4, "difference": -499248.24, "label": "Muhasebe kaydı yok", "action": "Faturayı muhasebeleştir"}, {"status": "AMOUNT_MISMATCH", "count": 4, "difference": 179100.0, "label": "Tutar farkı", "action": "Fişi fatura tutarıyla düzelt"}, {"status": "DUPLICATE_IN_GL", "count": 3, "difference": 861699.76, "label": "Mükerrer kayıt", "action": "Mükerrer fişi iptal et"}, {"status": "PROJECT_MISMATCH", "count": 3, "difference": 0.0, "label": "Yanlış proje kodu", "action": "Proje kodunu düzelt (virman)"}, {"status": "PERIOD_MISMATCH", "count": 3, "difference": 0.0, "label": "Dönem (cut-off) farkı", "action": "Dönem kaydını düzelt / tahakkuk"}, {"status": "MISSING_IN_SUBLEDGER", "count": 2, "difference": 72000.0, "label": "Faturası yok (manuel kayıt)", "action": "Kaydın dayanağını sor; dayanak yoksa ters kayıt"}], "projects": [{"project_id": "PRJ-01", "net_cost": 12224360.81, "invoice_count": 92, "exception_count": 3, "project_name": "Kuzey Otoyolu Viyadük Paketi", "segment": "Altyapı", "country": "Türkiye"}, {"project_id": "PRJ-04", "net_cost": 10450693.84, "invoice_count": 79, "exception_count": 2, "project_name": "Şehir Hastanesi Ek Blok", "segment": "Sağlık", "country": "Türkiye"}, {"project_id": "PRJ-06", "net_cost": 8972752.72, "invoice_count": 87, "exception_count": 4, "project_name": "Atık Su Kolektör Hattı", "segment": "Su & Atık Su", "country": "Kazakistan"}, {"project_id": "PRJ-03", "net_cost": 8295096.14, "invoice_count": 75, "exception_count": 1, "project_name": "Liman Konut Kompleksi", "segment": "İnşaat", "country": "Azerbaycan"}, {"project_id": "PRJ-02", "net_cost": 8257856.39, "invoice_count": 81, "exception_count": 2, "project_name": "Merkez İçme Suyu Arıtma Tesisi", "segment": "Su & Atık Su", "country": "Türkiye"}, {"project_id": "PRJ-05", "net_cost": 8108130.71, "invoice_count": 73, "exception_count": 5, "project_name": "Sahil Termal Otel", "segment": "Turizm", "country": "Gürcistan"}, {"project_id": "PRJ-07", "net_cost": 7364643.83, "invoice_count": 72, "exception_count": 0, "project_name": "Alışveriş Merkezi Genişleme", "segment": "Perakende", "country": "Türkiye"}, {"project_id": "PRJ-08", "net_cost": 6442183.13, "invoice_count": 61, "exception_count": 2, "project_name": "Doğu Çevre Yolu", "segment": "Altyapı", "country": "Irak"}], "exceptions": [{"doc_id": "INV-2026-00134", "status": "MISSING_IN_GL", "status_tr": "Muhasebe kaydı yok", "project_id": "PRJ-05", "invoice_project": "PRJ-05", "gl_project": null, "invoice_period": "2026-06", "gl_period": null, "vendor_name": "Asya Mekanik A.Ş.", "tax_no": "******7028", "subledger_amount": 228346.01, "gl_amount": 0.0, "difference": -228346.01, "action_tr": "Faturayı muhasebeleştir"}, {"doc_id": "INV-2026-00230", "status": "MISSING_IN_GL", "status_tr": "Muhasebe kaydı yok", "project_id": "PRJ-04", "invoice_project": "PRJ-04", "gl_project": null, "invoice_period": "2026-04", "gl_period": null, "vendor_name": "Pamir Akaryakıt A.Ş.", "tax_no": "******4887", "subledger_amount": 117860.8, "gl_amount": 0.0, "difference": -117860.8, "action_tr": "Faturayı muhasebeleştir"}, {"doc_id": "INV-2026-00259", "status": "MISSING_IN_GL", "status_tr": "Muhasebe kaydı yok", "project_id": "PRJ-08", "invoice_project": "PRJ-08", "gl_project": null, "invoice_period": "2026-01", "gl_period": null, "vendor_name": "Zirve İş Güvenliği A.Ş.", "tax_no": "******6349", "subledger_amount": 54309.29, "gl_amount": 0.0, "difference": -54309.29, "action_tr": "Faturayı muhasebeleştir"}, {"doc_id": "INV-2026-00597", "status": "MISSING_IN_GL", "status_tr": "Muhasebe kaydı yok", "project_id": "PRJ-06", "invoice_project": "PRJ-06", "gl_project": null, "invoice_period": "2026-04", "gl_period": null, "vendor_name": "Zirve Mühendislik A.Ş.", "tax_no": "******3150", "subledger_amount": 98732.14, "gl_amount": 0.0, "difference": -98732.14, "action_tr": "Faturayı muhasebeleştir"}, {"doc_id": "INV-2026-90001", "status": "MISSING_IN_SUBLEDGER", "status_tr": "Faturası yok (manuel kayıt)", "project_id": "PRJ-03", "invoice_project": null, "gl_project": "PRJ-03", "invoice_period": null, "gl_period": "2026-01", "vendor_name": "Ege Beton A.Ş.", "tax_no": "******6936", "subledger_amount": 0.0, "gl_amount": 24000.0, "difference": 24000.0, "action_tr": "Kaydın dayanağını sor; dayanak yoksa ters kayıt"}, {"doc_id": "INV-2026-90002", "status": "MISSING_IN_SUBLEDGER", "status_tr": "Faturası yok (manuel kayıt)", "project_id": "PRJ-08", "invoice_project": null, "gl_project": "PRJ-08", "invoice_period": null, "gl_period": "2026-04", "vendor_name": "Ege İş Güvenliği A.Ş.", "tax_no": "******5562", "subledger_amount": 0.0, "gl_amount": 48000.0, "difference": 48000.0, "action_tr": "Kaydın dayanağını sor; dayanak yoksa ters kayıt"}, {"doc_id": "INV-2026-00323", "status": "DUPLICATE_IN_GL", "status_tr": "Mükerrer kayıt", "project_id": "PRJ-01", "invoice_project": "PRJ-01", "gl_project": "PRJ-01", "invoice_period": "2026-03", "gl_period": "2026-03", "vendor_name": "Ege Hafriyat A.Ş.", "tax_no": "******4529", "subledger_amount": 583698.9, "gl_amount": 1167397.8, "difference": 583698.9, "action_tr": "Mükerrer fişi iptal et"}, {"doc_id": "INV-2026-00324", "status": "DUPLICATE_IN_GL", "status_tr": "Mükerrer kayıt", "project_id": "PRJ-01", "invoice_project": "PRJ-01", "gl_project": "PRJ-01", "invoice_period": "2026-01", "gl_period": "2026-01", "vendor_name": "Ege İş Güvenliği A.Ş.", "tax_no": "******5562", "subledger_amount": 138901.67, "gl_amount": 277803.34, "difference": 138901.67, "action_tr": "Mükerrer fişi iptal et"}, {"doc_id": "INV-2026-00346", "status": "DUPLICATE_IN_GL", "status_tr": "Mükerrer kayıt", "project_id": "PRJ-04", "invoice_project": "PRJ-04", "gl_project": "PRJ-04", "invoice_period": "2026-01", "gl_period": "2026-01", "vendor_name": "Marmara Mühendislik A.Ş.", "tax_no": "******4656", "subledger_amount": 139099.19, "gl_amount": 278198.38, "difference": 139099.19, "action_tr": "Mükerrer fişi iptal et"}, {"doc_id": "INV-2026-00021", "status": "AMOUNT_MISMATCH", "status_tr": "Tutar farkı", "project_id": "PRJ-06", "invoice_project": "PRJ-06", "gl_project": "PRJ-06", "invoice_period": "2026-03", "gl_period": "2026-03", "vendor_name": "Zirve Demir Çelik A.Ş.", "tax_no": "******8196", "subledger_amount": 18261.6, "gl_amount": 81261.6, "difference": 63000.0, "action_tr": "Fişi fatura tutarıyla düzelt"}, {"doc_id": "INV-2026-00042", "status": "AMOUNT_MISMATCH", "status_tr": "Tutar farkı", "project_id": "PRJ-05", "invoice_project": "PRJ-05", "gl_project": "PRJ-05", "invoice_period": "2026-01", "gl_period": "2026-01", "vendor_name": "Delta Demir Çelik A.Ş.", "tax_no": "******7737", "subledger_amount": 30990.2, "gl_amount": 39090.2, "difference": 8100.0, "action_tr": "Fişi fatura tutarıyla düzelt"}, {"doc_id": "INV-2026-00310", "status": "AMOUNT_MISMATCH", "status_tr": "Tutar farkı", "project_id": "PRJ-01", "invoice_project": "PRJ-01", "gl_project": "PRJ-01", "invoice_period": "2026-02", "gl_period": "2026-02", "vendor_name": "Ege İş Güvenliği A.Ş.", "tax_no": "******5562", "subledger_amount": 122091.28, "gl_amount": 212091.28, "difference": 90000.0, "action_tr": "Fişi fatura tutarıyla düzelt"}, {"doc_id": "INV-2026-00601", "status": "AMOUNT_MISMATCH", "status_tr": "Tutar farkı", "project_id": "PRJ-02", "invoice_project": "PRJ-02", "gl_project": "PRJ-02", "invoice_period": "2026-02", "gl_period": "2026-02", "vendor_name": "Ege İş Güvenliği A.Ş.", "tax_no": "******5562", "subledger_amount": 46432.62, "gl_amount": 64432.62, "difference": 18000.0, "action_tr": "Fişi fatura tutarıyla düzelt"}, {"doc_id": "INV-2026-00124", "status": "PROJECT_MISMATCH", "status_tr": "Yanlış proje kodu", "project_id": "PRJ-06", "invoice_project": "PRJ-06", "gl_project": "PRJ-01", "invoice_period": "2026-05", "gl_period": "2026-05", "vendor_name": "Zirve Mühendislik A.Ş.", "tax_no": "******3150", "subledger_amount": 82742.15, "gl_amount": 82742.15, "difference": 0.0, "action_tr": "Proje kodunu düzelt (virman)"}, {"doc_id": "INV-2026-00387", "status": "PROJECT_MISMATCH", "status_tr": "Yanlış proje kodu", "project_id": "PRJ-02", "invoice_project": "PRJ-02", "gl_project": "PRJ-07", "invoice_period": "2026-05", "gl_period": "2026-05", "vendor_name": "Zirve Mühendislik A.Ş.", "tax_no": "******3150", "subledger_amount": 419215.93, "gl_amount": 419215.93, "difference": 0.0, "action_tr": "Proje kodunu düzelt (virman)"}, {"doc_id": "INV-2026-00407", "status": "PROJECT_MISMATCH", "status_tr": "Yanlış proje kodu", "project_id": "PRJ-06", "invoice_project": "PRJ-06", "gl_project": "PRJ-03", "invoice_period": "2026-06", "gl_period": "2026-06", "vendor_name": "Zirve İş Güvenliği A.Ş.", "tax_no": "******6349", "subledger_amount": 241618.28, "gl_amount": 241618.28, "difference": 0.0, "action_tr": "Proje kodunu düzelt (virman)"}, {"doc_id": "INV-2026-00007", "status": "PERIOD_MISMATCH", "status_tr": "Dönem (cut-off) farkı", "project_id": "PRJ-05", "invoice_project": "PRJ-05", "gl_project": "PRJ-05", "invoice_period": "2026-03", "gl_period": "2026-04", "vendor_name": "Pamir İnşaat Malz. A.Ş.", "tax_no": "******7769", "subledger_amount": 57638.02, "gl_amount": 57638.02, "difference": 0.0, "action_tr": "Dönem kaydını düzelt / tahakkuk"}, {"doc_id": "INV-2026-00009", "status": "PERIOD_MISMATCH", "status_tr": "Dönem (cut-off) farkı", "project_id": "PRJ-05", "invoice_project": "PRJ-05", "gl_project": "PRJ-05", "invoice_period": "2026-05", "gl_period": "2026-06", "vendor_name": "Delta Demir Çelik A.Ş.", "tax_no": "******7737", "subledger_amount": 97332.64, "gl_amount": 97332.64, "difference": 0.0, "action_tr": "Dönem kaydını düzelt / tahakkuk"}, {"doc_id": "INV-2026-00026", "status": "PERIOD_MISMATCH", "status_tr": "Dönem (cut-off) farkı", "project_id": "PRJ-05", "invoice_project": "PRJ-05", "gl_project": "PRJ-05", "invoice_period": "2026-04", "gl_period": "2026-05", "vendor_name": "Pamir Akaryakıt A.Ş.", "tax_no": "******4887", "subledger_amount": 138310.1, "gl_amount": 138310.1, "difference": 0.0, "action_tr": "Dönem kaydını düzelt / tahakkuk"}], "trial_balance": [{"account_code": "102", "account_name": "Bankalar", "account_type": "Aktif", "total_debit": 0.0, "total_credit": 41660613.98, "balance": -41660613.98}, {"account_code": "150", "account_name": "İlk Madde ve Malzeme", "account_type": "Aktif", "total_debit": 33666471.64, "total_credit": 0.0, "balance": 33666471.64}, {"account_code": "191", "account_name": "İndirilecek KDV", "account_type": "Aktif", "total_debit": 13397696.14, "total_credit": 0.0, "balance": 13397696.14}, {"account_code": "255", "account_name": "Demirbaşlar", "account_type": "Aktif", "total_debit": 3665189.27, "total_credit": 0.0, "balance": 3665189.27}, {"account_code": "320", "account_name": "Satıcılar", "account_type": "Pasif", "total_debit": 41660613.98, "total_credit": 84056165.62, "balance": -42395551.64}, {"account_code": "740", "account_name": "Hizmet Üretim Maliyeti", "account_type": "Gider", "total_debit": 25575156.95, "total_credit": 0.0, "balance": 25575156.95}, {"account_code": "770", "account_name": "Genel Yönetim Giderleri", "account_type": "Gider", "total_debit": 7751651.62, "total_credit": 0.0, "balance": 7751651.62}]};
+
+const nf = new Intl.NumberFormat('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const nf0 = new Intl.NumberFormat('tr-TR', {maximumFractionDigits: 0});
+const nfM = v => new Intl.NumberFormat('tr-TR', {minimumFractionDigits: 1, maximumFractionDigits: 1}).format(v / 1e6);
+const tl = v => nf.format(v) + ' TL';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const MONTHS = {'01':'Oca','02':'Şub','03':'Mar','04':'Nis','05':'May','06':'Haz','07':'Tem'};
+const mlabel = p => MONTHS[p.slice(5,7)] + ' ' + p.slice(2,4);
+const NS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+
+// --- tooltip ---------------------------------------------------------------
+const tip = document.getElementById('tip');
+function showTip(evt, title, rows) {
+  tip.innerHTML = `<b>${esc(title)}</b>` + rows.map(([k, v]) => `<div class="row"><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join('');
+  tip.style.display = 'block';
+  const r = tip.getBoundingClientRect();
+  let x = evt.clientX + 14, y = evt.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = evt.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = evt.clientY - r.height - 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+const hideTip = () => tip.style.display = 'none';
+
+// rounded-top bar path (4px data-end radius, square at baseline)
+function vbar(x, y, w, h, r = 4) {
+  r = Math.min(r, w / 2, h);
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+}
+function hbar(x, y, w, h, r = 4) {
+  r = Math.min(r, h / 2, w);
+  return `M${x},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h - r}Q${x + w},${y + h} ${x + w - r},${y + h}H${x}Z`;
+}
+function niceMax(v) { const p = Math.pow(10, Math.floor(Math.log10(v))); return Math.ceil(v / p * 2) / 2 * p; }
+
+// --- header + KPIs ---------------------------------------------------------
+const S = DATA.summary;
+document.getElementById('meta').innerHTML = [
+  `Rapor tarihi: ${DATA.generated_at}`, `${nf0.format(S.invoice_count)} fatura`,
+  `${nf0.format(S.gl_entry_count)} yevmiye fişi`, 'Kaynak: v_ap_invoices, v_ap_postings, v_gl_lines'
+].map(t => `<span class="chip">${esc(t)}</span>`).join('');
+
+const ok = (cond, yes, no) => `<span class="status ${cond ? 'ok' : 'bad'}"><i class="dot" style="background:var(${cond ? '--good' : '--critical'})"></i>${cond ? yes : no}</span>`;
+const kpis = [
+  ['Fatura toplamı (alt defter)', nfM(S.subledger_total) + ' M TL', tl(S.subledger_total)],
+  ['Muhasebe toplamı (320 alacak)', nfM(S.gl_total) + ' M TL', tl(S.gl_total)],
+  ['Toplam fark', nfM(S.total_difference) + ' M TL', tl(S.total_difference)],
+  ['Açıklanamayan fark', ok(Math.abs(S.unexplained_difference) < 0.01, '0,00 TL', tl(S.unexplained_difference)), 'Fark = istisna farkları toplamı'],
+  ['Eşleşme oranı', '%' + nf.format(S.match_rate * 100), `${S.matched_count} eşleşti · ${S.exception_count} istisna`],
+  ['Mizan dengesi', ok(S.trial_balance_ok, 'Dengede', 'Dengesiz'), 'Her ay: borç = alacak'],
+];
+document.getElementById('kpis').innerHTML = kpis.map(([l, v, s]) =>
+  `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s}</div></div>`).join('');
+
+// --- chart 1: monthly grouped bars ---------------------------------------
+(function () {
+  const host = document.getElementById('chart-monthly');
+  const W = 540, H = 250, m = {t: 10, r: 8, b: 26, l: 40};
+  const svg = el('svg', {viewBox: `0 0 ${W} ${H}`, width: '100%', role: 'img', 'aria-label': 'Aylık fatura ve muhasebe tutarları'}, host);
+  const rows = DATA.monthly, iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const max = niceMax(Math.max(...rows.flatMap(r => [r.subledger, r.gl])));
+  const y = v => m.t + ih - v / max * ih;
+  for (let i = 0; i <= 4; i++) {
+    const v = max * i / 4, yy = y(v);
+    el('line', {x1: m.l, x2: W - m.r, y1: yy, y2: yy, stroke: i ? 'var(--grid)' : 'var(--axis)', 'stroke-width': 1}, svg);
+    el('text', {x: m.l - 6, y: yy + 4, 'text-anchor': 'end', class: 'tick'}, svg).textContent = nfM(v);
+  }
+  const gw = iw / rows.length, bw = Math.min(26, gw * 0.3), gap = 2;
+  rows.forEach((r, i) => {
+    const cx = m.l + gw * i + gw / 2;
+    [['subledger', '--series-1', -1], ['gl', '--series-2', 1]].forEach(([k, c, s]) => {
+      const x = s < 0 ? cx - bw - gap / 2 : cx + gap / 2;
+      el('path', {d: vbar(x, y(r[k]), bw, y(0) - y(r[k])), fill: `var(${c})`}, svg);
+    });
+    el('text', {x: cx, y: H - 8, 'text-anchor': 'middle', class: 'tick'}, svg).textContent = mlabel(r.period);
+    const hit = el('rect', {x: m.l + gw * i, y: m.t, width: gw, height: ih, class: 'hit'}, svg);
+    hit.addEventListener('mousemove', e => showTip(e, mlabel(r.period), [
+      ['Fatura', tl(r.subledger)], ['Muhasebe', tl(r.gl)], ['Fark', tl(r.gl - r.subledger)]]));
+    hit.addEventListener('mouseleave', hideTip);
+  });
+  document.getElementById('tbl-monthly').innerHTML = table(['Dönem', 'Fatura', 'Muhasebe', 'Fark'],
+    rows.map(r => [mlabel(r.period), tl(r.subledger), tl(r.gl), tl(r.gl - r.subledger)]), [1, 2, 3]);
+})();
+
+// --- generic horizontal bar chart ---------------------------------------
+function hbars(hostId, rows, {label, value, fmt, tipRows, labelW = 190}) {
+  const host = document.getElementById(hostId);
+  const rowH = 30, m = {t: 4, r: 70, b: 4, l: labelW}, W = hostId === 'chart-projects' ? 1100 : 540;
+  const H = m.t + m.b + rows.length * rowH;
+  const svg = el('svg', {viewBox: `0 0 ${W} ${H}`, width: '100%', role: 'img'}, host);
+  const max = Math.max(...rows.map(value)) || 1, iw = W - m.l - m.r;
+  el('line', {x1: m.l, x2: m.l, y1: m.t, y2: H - m.b, stroke: 'var(--axis)'}, svg);
+  rows.forEach((r, i) => {
+    const yy = m.t + i * rowH, bh = 16, by = yy + (rowH - bh) / 2, w = Math.max(2, value(r) / max * iw);
+    el('text', {x: m.l - 10, y: yy + rowH / 2 + 4, 'text-anchor': 'end', class: 'lbl'}, svg).textContent = label(r);
+    el('path', {d: hbar(m.l, by, w, bh), fill: 'var(--series-1)'}, svg);
+    el('text', {x: m.l + w + 6, y: yy + rowH / 2 + 4, class: 'val'}, svg).textContent = fmt(value(r));
+    const hit = el('rect', {x: 0, y: yy, width: W, height: rowH, class: 'hit'}, svg);
+    hit.addEventListener('mousemove', e => showTip(e, label(r), tipRows(r)));
+    hit.addEventListener('mouseleave', hideTip);
+  });
+}
+
+hbars('chart-types', DATA.by_type, {
+  label: r => r.label, value: r => r.count, fmt: v => v + ' belge', labelW: 200,
+  tipRows: r => [['Belge', String(r.count)], ['Fark (muhasebe − fatura)', tl(r.difference)], ['Aksiyon', r.action]],
+});
+document.getElementById('tbl-types').innerHTML = table(['İstisna türü', 'Belge', 'Fark', 'Aksiyon'],
+  DATA.by_type.map(r => [r.label, r.count, tl(r.difference), r.action]), [1, 2]);
+
+hbars('chart-projects', DATA.projects, {
+  label: r => `${r.project_name} · ${r.segment}`, value: r => r.net_cost, fmt: v => nfM(v) + ' M', labelW: 330,
+  tipRows: r => [['Net maliyet', tl(r.net_cost)], ['Fatura', String(r.invoice_count)], ['İstisna', String(r.exception_count)], ['Ülke', r.country]],
+});
+document.getElementById('tbl-projects').innerHTML = table(['Proje', 'Segment', 'Ülke', 'Net maliyet', 'Fatura', 'İstisna'],
+  DATA.projects.map(r => [r.project_name, r.segment, r.country, tl(r.net_cost), r.invoice_count, r.exception_count]), [3, 4, 5]);
+
+// --- tables ---------------------------------------------------------------
+function table(head, rows, numCols = []) {
+  return `<table><thead><tr>${head.map((h, i) => `<th class="${numCols.includes(i) ? 'num' : ''}">${esc(h)}</th>`).join('')}</tr></thead><tbody>` +
+    rows.map(r => `<tr>${r.map((c, i) => `<td class="${numCols.includes(i) ? 'num' : ''}">${esc(c)}</td>`).join('')}</tr>`).join('') + '</tbody></table>';
+}
+
+const fType = document.getElementById('f-type'), fProj = document.getElementById('f-project'), fSearch = document.getElementById('f-search');
+[...new Set(DATA.exceptions.map(r => r.status_tr))].forEach(t => fType.add(new Option(t, t)));
+[...new Set(DATA.exceptions.map(r => r.project_id))].sort().forEach(p => {
+  const name = (DATA.projects.find(x => x.project_id === p) || {}).project_name || p;
+  fProj.add(new Option(`${p} · ${name}`, p));
+});
+function renderExc() {
+  const q = fSearch.value.trim().toLocaleLowerCase('tr');
+  const rows = DATA.exceptions.filter(r => (!fType.value || r.status_tr === fType.value) &&
+    (!fProj.value || r.project_id === fProj.value) &&
+    (!q || (r.doc_id + ' ' + (r.vendor_name || '')).toLocaleLowerCase('tr').includes(q)));
+  document.getElementById('f-count').textContent = `${rows.length} / ${DATA.exceptions.length} belge`;
+  document.getElementById('exc').innerHTML =
+    `<thead><tr><th>Belge</th><th>İstisna</th><th>Dönem (fatura → kayıt)</th><th>Proje (fatura → kayıt)</th><th>Tedarikçi</th><th>VKN</th>` +
+    `<th class="num">Fatura</th><th class="num">Muhasebe</th><th class="num">Fark</th><th>Önerilen aksiyon</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${esc(r.doc_id)}</td><td><span class="pill">${esc(r.status_tr)}</span></td>` +
+      `<td>${esc(r.invoice_period || '—')} → ${esc(r.gl_period || '—')}</td>` +
+      `<td>${esc(r.invoice_project || '—')} → ${esc(r.gl_project || '—')}</td>` +
+      `<td>${esc(r.vendor_name || '—')}</td><td>${esc(r.tax_no || '—')}</td>` +
+      `<td class="num">${nf.format(r.subledger_amount)}</td><td class="num">${nf.format(r.gl_amount)}</td>` +
+      `<td class="num ${r.difference ? 'neg' : ''}">${nf.format(r.difference)}</td><td>${esc(r.action_tr)}</td></tr>`).join('') + '</tbody>';
+}
+[fType, fProj].forEach(e => e.addEventListener('change', renderExc));
+fSearch.addEventListener('input', renderExc);
+renderExc();
+
+const tbRows = DATA.trial_balance.map(r => [r.account_code, r.account_name, r.account_type, nf.format(r.total_debit), nf.format(r.total_credit), nf.format(r.balance)]);
+const tot = DATA.trial_balance.reduce((a, r) => [a[0] + r.total_debit, a[1] + r.total_credit], [0, 0]);
+tbRows.push(['', 'TOPLAM', '', nf.format(tot[0]), nf.format(tot[1]), nf.format(tot[0] - tot[1])]);
+document.getElementById('tb').innerHTML = table(['Hesap', 'Hesap adı', 'Tür', 'Borç', 'Alacak', 'Bakiye'], tbRows, [3, 4, 5]).replace(/^<table>|<\/table>$/g, '');
+
+document.getElementById('foot').textContent =
+  'Veriler sentetiktir; gerçek kişi veya kurumlarla ilgisi yoktur. Rapor, açıklanamayan fark 0 ve mizan dengede olmadıkça üretilmez (bkz. run_pipeline.py).';
+</script>
+</body>
+</html>
